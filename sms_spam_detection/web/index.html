@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SMS Scam Checker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* VOICE work tool with a project write-up: clear, exact, a little warm
+   IDEA a phone message held under an inspector's lamp: the SMS bubble is marked up word by word
+   PICTURE the scanned message as a chat bubble with every word tinted by its pull, beside a large risk scale
+   COLOUR white ground, deep ink, blue = legitimate pull, orange = spam pull, red only for high risk
+   TYPE Space Grotesk for titles and figures, Inter for text
+   LAYOUT laptop: input left, result right, bubble full width under both; phone: title, input, result, bubble */
+:root{color-scheme:light dark;--bg:light-dark(#ffffff,#0f141c);--panel:light-dark(#f4f6f9,#161d28);--ink:light-dark(#121a26,#e9edf3);--muted:light-dark(#566070,#a3adbb);--line:light-dark(#dde2ea,#2a3443);--blue:light-dark(#1f6fd1,#5b9cf0);--orange:light-dark(#c9531f,#f08a55);--red:light-dark(#c42f2f,#f07171);--green:light-dark(#18804a,#4fcf8a);--amber:light-dark(#a86a00,#f0b545);--band:light-dark(#0f1b2d,#0a1019);--bandink:#eef1f6}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+html{scroll-padding-top:64px}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 Inter,system-ui,sans-serif;overflow-x:clip}
+h1,h2,h3,.num{font-family:"Space Grotesk",Inter,sans-serif;letter-spacing:-.02em}
+h1{font-size:clamp(32px,4.2vw,48px);line-height:1.05;margin:0 0 10px;text-wrap:balance}
+h2{font-size:clamp(26px,3vw,36px);line-height:1.1;margin:0 0 12px;text-wrap:balance}
+h3{font-size:18px;margin:0 0 6px}
+p{margin:0 0 12px;max-width:70ch}
+a{color:var(--blue)}
+.wrap{max-width:1240px;margin:0 auto}
+.band{padding:clamp(28px,4vw,56px) max(5vw,16px)}
+.top{padding-bottom:0}
+.lede{color:var(--muted);font-size:17px}
+nav.scroll{display:flex;gap:18px;overflow-x:auto;padding:12px max(5vw,16px);border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg);z-index:5}
+nav.scroll a{flex:none;text-decoration:none;color:var(--muted);font-weight:500;font-size:15px}
+nav.scroll a:hover{color:var(--ink)}
+nav .brand{color:var(--ink);font-family:"Space Grotesk",sans-serif;font-weight:700}
+.tool{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:24px;margin-top:22px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px}
+label{font-weight:600;display:block;margin-bottom:8px}
+textarea{width:100%;min-height:150px;font:16px/1.5 Inter,sans-serif;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px;resize:vertical}
+textarea:focus,button:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid color-mix(in srgb,var(--blue) 45%,transparent);outline-offset:2px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+.chip{border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:999px;padding:9px 14px;font:500 14px Inter,sans-serif;cursor:pointer;min-height:40px}
+.chip:hover{border-color:var(--blue)}
+.btn{background:var(--ink);color:var(--bg);border:0;border-radius:10px;padding:12px 18px;font:600 16px Inter,sans-serif;cursor:pointer;min-height:44px}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.note{font-size:14px;color:var(--muted)}
+.score{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.score .num{font-size:clamp(64px,8vw,96px);font-weight:700;line-height:1}
+.lvl{font:700 15px Inter,sans-serif;padding:5px 12px;border-radius:999px;color:#fff;white-space:nowrap}
+.lvl.low{background:var(--green)}.lvl.medium{background:var(--amber)}.lvl.high{background:var(--red)}
+.scale{position:relative;height:16px;border-radius:8px;margin:16px 0 6px;background:linear-gradient(90deg,var(--green) 0 30%,var(--amber) 30% 60%,var(--red) 60% 100%);opacity:.9}
+.pin{position:absolute;top:-7px;width:4px;height:30px;background:var(--ink);border-radius:2px;transform:translateX(-2px);transition:left .5s cubic-bezier(.2,.8,.2,1)}
+.ticks{display:flex;justify-content:space-between;font-size:13px;color:var(--muted)}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(9em,1fr));gap:14px;margin-top:16px}
+.facts div{border-top:1px solid var(--line);padding-top:8px}
+.facts b{display:block;font:700 22px "Space Grotesk",sans-serif}
+.facts span{font-size:14px;color:var(--muted)}
+.bubblewrap{margin-top:24px;display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:24px}
+.phone{background:var(--panel);border:1px solid var(--line);border-radius:22px;padding:18px}
+.sender{font-size:14px;color:var(--muted);margin-bottom:8px}
+.bubble{background:var(--bg);border:1px solid var(--line);border-radius:18px 18px 18px 6px;padding:14px 16px;font-size:18px;line-height:1.9;overflow-wrap:anywhere}
+.bars .r{display:grid;grid-template-columns:minmax(0,9em) minmax(0,1fr) 4.5em;gap:10px;align-items:center;padding:5px 0;font-size:15px}
+.bars .r span:first-child{overflow-wrap:anywhere}
+.bar{height:12px;border-radius:3px}
+input[type=file]{font:15px Inter,sans-serif;color:var(--ink);max-width:100%}
+.bubble mark{border-radius:5px;padding:1px 3px;color:inherit}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:14px;color:var(--muted);margin-top:10px}
+.sw{display:inline-block;width:14px;height:14px;border-radius:4px;vertical-align:-2px;margin-right:6px}
+ul.list{margin:0;padding-left:20px}
+ul.list li{margin-bottom:8px}
+code.def{font:14px ui-monospace,Menlo,monospace;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:2px 6px;overflow-wrap:anywhere}
+.ev{font-size:14px;color:var(--muted)}
+.dark{background:var(--band);color:var(--bandink)}
+.dark .lede,.dark .note{color:#b4bccb}
+.steps{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;margin-top:22px}
+.step{border:1px solid #2c3a52;border-radius:14px;padding:16px;background:#14233a}
+.step .k{font:700 15px "Space Grotesk",sans-serif;color:#f08a55}
+.step p{font-size:15px;color:#c9d0dc;margin:6px 0 0}
+.big{display:grid;grid-template-columns:repeat(auto-fit,minmax(10em,1fr));gap:16px;margin:20px 0 28px}
+.big .num{font-size:clamp(40px,5vw,60px);font-weight:700;line-height:1;color:var(--blue)}
+.big span{font-size:15px;color:var(--muted)}
+.two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:28px}
+.cm{display:grid;grid-template-columns:auto 1fr 1fr;gap:6px;max-width:420px;font-size:15px}
+.cm div{padding:16px 10px;border-radius:8px;text-align:center}
+.cm .h{color:var(--muted);padding:6px}
+.cm .v{font:700 28px "Space Grotesk",sans-serif}
+.dots .r{display:grid;grid-template-columns:minmax(0,8em) minmax(0,1fr) 6.5em;gap:12px;align-items:center;padding:9px 0;border-bottom:1px solid var(--line)}
+.track{position:relative;height:22px}
+.track::before{content:"";position:absolute;left:0;right:0;top:10px;height:2px;background:var(--line)}
+.dot{position:absolute;top:4px;width:14px;height:14px;border-radius:50%;transform:translateX(-7px)}
+.seg{position:absolute;top:9px;height:4px;background:var(--orange);opacity:.45}
+.val{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.axis{display:flex;justify-content:space-between;font-size:13px;color:var(--muted);margin-left:calc(8em + 12px);margin-right:calc(6.5em + 12px)}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:15px}
+th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.batch{margin-top:16px}
+pre{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;overflow-x:auto;font-size:14px}
+footer{border-top:1px solid var(--line)}
+@media(max-width:900px){.steps{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:760px){.tool,.bubblewrap,.two{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:520px){.dots .r{grid-template-columns:minmax(0,1fr) 6.5em}.dots .track{grid-column:1/-1;grid-row:2}.axis{margin-left:0;margin-right:0}.steps{grid-template-columns:minmax(0,1fr)}}
+@media(prefers-reduced-motion:reduce){.pin{transition:none}}
+</style>
+</head>
+<body>
+<nav class="scroll" aria-label="Sections">
+<a class="brand" href="#check">SMS Scam Checker</a><a href="#check">Check a message</a><a href="#how">How it works</a><a href="#results">Results</a><a href="#batch">Batch</a><a href="#limits">Limitations</a><a href="#run">Run it</a>
+</nav>
+
+<section class="band top" id="check"><div class="wrap">
+<h1>Is this SMS a scam?</h1>
+<p class="lede">Paste a message to get the model's verdict, a 0–100 risk score and the words that decided it. Everything runs inside your browser, and the message is never sent anywhere.</p>
+
+<div class="tool">
+<div class="card">
+<label for="msg">SMS message</label>
+<textarea id="msg" maxlength="2000" spellcheck="false"></textarea>
+<div class="chips" id="chips"></div>
+<div class="row"><button class="btn" id="go">Check message</button><button class="btn ghost" id="clear">Clear</button><span class="note" id="status">Loading model…</span></div>
+</div>
+
+<div class="card" aria-live="polite">
+<div class="score"><span class="num" id="score">–</span><span class="note">/ 100 risk</span><span class="lvl" id="lvl" hidden></span></div>
+<div class="scale" aria-hidden="true"><div class="pin" id="pin" style="left:0%"></div></div>
+<div class="ticks"><span>Low</span><span>30</span><span>60</span><span>High</span></div>
+<div class="facts">
+<div><b id="verdict">–</b><span>model verdict</span></div>
+<div><b id="prob">–</b><span>model probability of spam</span></div>
+<div><b id="type">–</b><span>possible scam type</span></div>
+</div>
+<p class="note" style="margin-top:14px">Risk = 60 × probability + warning-sign points (−20 to +40). It is a triage aid, not a probability.</p>
+</div>
+</div>
+
+<div class="bubblewrap">
+<div class="phone">
+<div class="sender">Message, marked up by the model</div>
+<div class="bubble" id="bubble">–</div>
+<div class="legend"><span><i class="sw" style="background:color-mix(in srgb,var(--orange) 55%,transparent)"></i>pushes towards spam</span><span><i class="sw" style="background:color-mix(in srgb,var(--blue) 45%,transparent)"></i>pushes towards legitimate</span><span>Darker = stronger</span></div>
+<h3 style="margin-top:20px">Strongest words</h3>
+<div class="bars" id="words"></div>
+</div>
+<div class="card">
+<h3>Warning signs</h3><ul class="list" id="signs"></ul>
+<h3 style="margin-top:16px">Links (never opened)</h3><ul class="list" id="links"></ul>
+<h3 style="margin-top:16px">What to do</h3><ul class="list" id="actions"></ul>
+</div>
+</div>
+</div></section>
+
+<section class="band dark" id="how" style="margin-top:clamp(28px,4vw,56px)"><div class="wrap">
+<h2>How it works</h2>
+<p class="lede">A statistical model reads the text. Hand-written rules catch modern Indian scams that the 2011 training data never saw.</p>
+<div class="steps">
+<div class="step"><div class="k">1 · Clean</div><p>Unicode NFKC, HTML entities decoded, spaces collapsed. Digits, £, $ and ₹ are kept as strong signals.</p></div>
+<div class="step"><div class="k">2 · TF-IDF</div><p>Word 1–2-grams plus character 2–5-grams, so “txt”/“text” and misspellings share features, and Devanagari works.</p></div>
+<div class="step"><div class="k">3 · Linear SVM</div><p>One weight per feature, balanced class weights for the 12% spam minority, C = 0.3 from a 24-setting grid search.</p></div>
+<div class="step"><div class="k">4 · Calibrate</div><p>Platt (sigmoid) scaling on out-of-fold scores turns the SVM margin into a probability.</p></div>
+<div class="step"><div class="k">5 · Rules + links</div><p>KYC, OTP, UPI-PIN, prize, delivery, job and investment patterns in English, Hinglish and Hindi; links checked as text.</p></div>
+</div>
+<p class="note" style="margin-top:18px">Leakage control: the split is made before any fitting. Translations of one SMS, MinHash near-duplicates and messages sharing a phone number are kept in the same group (5,113 groups; 0 cross train/test). The 4,115-message test set is frozen and used once.</p>
+</div></section>
+
+<section class="band" id="results"><div class="wrap">
+<h2>9 false alarms and 42 missed spam in 4,115 test messages</h2>
+<p class="lede">Final model on the frozen test set (UCI SMS Spam Collection + French, German and Hindi translations, 20,571 messages).</p>
+<div class="big">
+<div><div class="num">0.948</div><span>spam F1</span></div>
+<div><div class="num">0.981</div><span>spam precision</span></div>
+<div><div class="num">0.918</div><span>spam recall</span></div>
+<div><div class="num">0.988</div><span>accuracy</span></div>
+<div><div class="num">~4 ms</div><span>per message (Python)</span></div>
+</div>
+<div class="two">
+<div>
+<h3>Confusion matrix</h3>
+<div class="cm" role="table" aria-label="Confusion matrix">
+<div class="h"></div><div class="h">Predicted ham</div><div class="h">Predicted spam</div>
+<div class="h" style="text-align:right">Actual ham</div><div class="v" style="background:color-mix(in srgb,var(--blue) 30%,transparent)">3,596</div><div class="v" style="background:color-mix(in srgb,var(--orange) 18%,transparent)">9</div>
+<div class="h" style="text-align:right">Actual spam</div><div class="v" style="background:color-mix(in srgb,var(--orange) 25%,transparent)">42</div><div class="v" style="background:color-mix(in srgb,var(--blue) 18%,transparent)">468</div>
+</div>
+<p class="note" style="margin-top:12px">The page runs a compact export of the same pipeline (60,000 features, one calibrated SVM): <span id="webm">F1 0.943 on the same test set</span>. Its probabilities match the Python version to within 0.00001.</p>
+</div>
+<div>
+<h3>Spam F1 by language: English-only training → all languages</h3>
+<div class="dots" id="langs"></div>
+<div class="axis"><span>0.5</span><span>0.75</span><span>1.0</span></div>
+</div>
+</div>
+<h3 style="margin-top:32px">Model comparison (grouped 5-fold CV picks the model, never the test set)</h3>
+<div class="scroll"><table>
+<thead><tr><th>Model</th><th class="n">CV spam F1</th><th class="n">Test precision</th><th class="n">Test recall</th><th class="n">Test F1</th></tr></thead>
+<tbody id="cmp"></tbody></table></div>
+</div></section>
+
+<section class="band" id="batch" style="background:var(--panel)"><div class="wrap">
+<h2>Check many messages at once</h2>
+<p class="lede">Load a CSV with a <code>message</code> column or a TXT file with one message per line, or paste below (one per line). Files are read in your browser only.</p>
+<div class="row"><input type="file" id="file" accept=".csv,.txt" aria-label="Upload CSV or TXT"><button class="btn ghost" id="pasteRun">Check pasted lines</button><button class="btn ghost" id="copy" disabled>Copy results as CSV</button><span class="note" id="bstat"></span></div>
+<textarea id="lines" style="margin-top:12px;min-height:110px" aria-label="Messages, one per line"></textarea>
+<div class="scroll batch"><table><thead><tr><th>Message</th><th>Verdict</th><th class="n">Prob.</th><th class="n">Risk</th><th>Scam type</th></tr></thead><tbody id="btable"></tbody></table></div>
+</div></section>
+
+<section class="band" id="limits"><div class="wrap two">
+<div><h2>Limitations</h2><ul class="list">
+<li>The training SMS are from 2011 (UK and Singapore), so modern Indian scams are under-represented. The rules help, but they don't fix this.</li>
+<li>The Hindi data is machine-translated, not real Hindi or Hinglish SMS.</li>
+<li>The probability reflects the training data, not the real-world chance that a message is a scam.</li>
+<li>The rule-based scam types are not validated on labelled data.</li></ul></div>
+<div><h2>Next steps</h2><ul class="list">
+<li>Collect real, consented Indian SMS (English, Hindi, Hinglish), including genuine bank alerts as hard negatives.</li>
+<li>Fine-tune MuRIL or XLM-R and compare them on the same frozen split.</li>
+<li>Train a supervised scam-category classifier.</li></ul></div>
+</div></section>
+
+<footer class="band" id="run"><div class="wrap two">
+<div><h2>Run the full project</h2>
+<pre>pip install -r requirements.txt
+python train.py          # EDA, model comparison, grid search, final model
+streamlit run app.py     # full app with batch upload and dashboards</pre></div>
+<div><h3>About</h3><p class="note">Statistical Machine Learning project: SMS Spam &amp; Scam Detection. Data: UCI SMS Spam Collection (Almeida et al., 2011) and its public French, German and Hindi machine translations. Built with scikit-learn and Streamlit.</p>
+<p class="note">Report fraud in India at cybercrime.gov.in or by calling 1930.</p></div>
+</div></footer>
+
+<script src="engine.js"></script>
+<script>
+{
+const EX = [
+  ["UPI scam (Hinglish)", "Congratulations! Aapko Rs 5000 cashback mila hai. Paise receive karne ke liye UPI PIN daalein: bit.ly/cb-paytm5000"],
+  ["KYC phishing", "Dear Customer, your SBI account will be blocked today due to pending KYC. Update immediately: http://sbi-kyc-update.xyz/login"],
+  ["Genuine OTP", "483920 is your OTP for login to HDFC Bank NetBanking. Valid for 5 mins. Do not share it with anyone. -HDFC Bank"],
+  ["Prize spam", "WINNER!! As a valued network customer you have been selected to receive a £900 prize reward! To claim call 09061701461. Claim code KL341. Valid 12 hours only."],
+  ["Delivery scam", "IndiaPost: Your parcel is on hold due to incomplete address. Pay Rs 25 redelivery fee within 24 hrs: indiapost-redeliver.top/pay"],
+  ["Hindi KYC", "प्रिय ग्राहक, आपका बैंक खाता आज ब्लॉक कर दिया जाएगा। तुरंत केवाईसी अपडेट करें: http://kyc-sbi-update.top"],
+  ["Friend", "Hey, are we still meeting at 6 for dinner? I'll bring the notes for tomorrow's exam."],
+];
+const COMPARE = [
+  ["Linear SVM (word + char) · chosen", .943, .987, .920, .952],
+  ["Logistic Regression (word + char)", .942, .983, .929, .956],
+  ["Linear SVM (words only)", .905, .970, .875, .920],
+  ["Logistic Regression (words only)", .902, .936, .882, .908],
+  ["Multinomial Naive Bayes", .834, .980, .749, .849],
+];
+const LANGS = [["English", .972, .972], ["French", .939, .972], ["German", .939, .964], ["Hindi", .591, .881]];
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+let model = null, last = [];
+
+$("chips").innerHTML = EX.map((e, i) => `<button class="chip" data-i="${i}">${esc(e[0])}</button>`).join("");
+$("cmp").innerHTML = COMPARE.map(r => `<tr><td>${esc(r[0])}</td>${r.slice(1).map(v => `<td class="n">${v.toFixed(3)}</td>`).join("")}</tr>`).join("");
+const pos = v => ((v - .5) / .5 * 100).toFixed(1) + "%";
+$("langs").innerHTML = LANGS.map(l => `<div class="r"><span>${l[0]}</span><div class="track">
+<div class="seg" style="left:${pos(l[1])};width:calc(${pos(l[2])} - ${pos(l[1])})"></div>
+<i class="dot" style="left:${pos(l[1])};background:var(--blue)" title="English-only ${l[1]}"></i>
+<i class="dot" style="left:${pos(l[2])};background:var(--orange)" title="All languages ${l[2]}"></i></div>
+<span class="val">${l[1].toFixed(2)} → <b>${l[2].toFixed(2)}</b></span></div>`).join("");
+
+function bubble(text, ex) {
+  const w = new Map([...ex.spam, ...ex.ham].filter(([k]) => !k.includes(" ")));
+  const max = Math.max(1e-9, ...[...w.values()].map(Math.abs));
+  return text.split(/(\s+)/).map(part => {
+    const key = part.replace(/^[^\p{L}\p{N}_]+|[^\p{L}\p{N}_]+$/gu, "").toLowerCase();
+    const shown = esc(SpamEngine.defangText(part));
+    if (!w.has(key)) return shown;
+    const v = w.get(key), a = Math.round(15 + 55 * Math.abs(v) / max);
+    const col = v > 0 ? "var(--orange)" : "var(--blue)";
+    return `<mark style="background:color-mix(in srgb,${col} ${a}%,transparent)" title="${v > 0 ? "spam" : "legitimate"} pull ${v.toFixed(3)}">${shown}</mark>`;
+  }).join("");
+}
+
+function check() {
+  const text = $("msg").value.trim();
+  if (!model) return;
+  if (!text) { $("status").textContent = "Type or paste a message first."; return; }
+  const r = model.analyse(text), a = SpamEngine.assess(text, r.prob, model.m.threshold);
+  $("score").textContent = a.score;
+  $("lvl").hidden = false; $("lvl").className = "lvl " + a.level; $("lvl").textContent = a.level.toUpperCase();
+  $("pin").style.left = a.score + "%";
+  $("verdict").textContent = a.verdict === "spam" ? "Spam" : "Legitimate";
+  $("prob").textContent = (r.prob * 100).toFixed(1) + "%";
+  $("type").textContent = a.scamType || "None";
+  $("bubble").innerHTML = bubble(text, r.explain);
+  const top = [...r.explain.spam.slice(0, 6), ...r.explain.ham.slice(0, 4)];
+  const mx = Math.max(1e-9, ...top.map(x => Math.abs(x[1])));
+  $("words").innerHTML = top.length ? top.map(([k, v]) => `<div class="r"><span>${esc(SpamEngine.defangText(k))}</span><div class="bar" style="width:${(Math.abs(v) / mx * 100).toFixed(1)}%;background:${v > 0 ? "var(--orange)" : "var(--blue)"}"></div><span class="val">${v > 0 ? "+" : "−"}${Math.abs(v).toFixed(3)}</span></div>`).join("") : '<p class="note">No known words in this message.</p>';
+  $("signs").innerHTML = a.signs.length ? a.signs.map(s => `<li><b>${esc(s.label)}</b> (${s.points > 0 ? "+" : ""}${s.points})<br><span class="ev">“${esc(SpamEngine.defangText(s.evidence))}”</span></li>`).join("") : "<li>No rule-based warning signs.</li>";
+  $("links").innerHTML = a.links.length ? a.links.map(l => `<li><code class="def">${esc(l.defanged)}</code><br><span class="ev">${l.reasons.length ? esc(l.reasons.join("; ")) : "no obvious red flags in the text of this link"}</span></li>`).join("") : "<li>No links found.</li>";
+  $("actions").innerHTML = (a.actions.length ? a.actions : ["Looks normal. Still, never share OTPs or PINs."]).map(x => `<li>${esc(x)}</li>`).join("");
+  $("status").textContent = "Checked in your browser.";
+}
+
+function runBatch(msgs) {
+  if (!model) return;
+  msgs = msgs.map(s => s.trim()).filter(Boolean).slice(0, 5000);
+  last = msgs.map(m => { const r = model.analyse(m), a = SpamEngine.assess(m, r.prob, model.m.threshold); return [m, a.verdict, r.prob, a.score, a.level, a.scamType || ""]; });
+  $("btable").innerHTML = last.slice(0, 300).map(x => `<tr><td>${esc(SpamEngine.defangText(x[0]).slice(0, 90))}</td><td>${x[1]}</td><td class="n">${x[2].toFixed(3)}</td><td class="n"><span class="lvl ${x[4]}">${x[3]}</span></td><td>${esc(x[5])}</td></tr>`).join("");
+  const hi = last.filter(x => x[4] === "high").length;
+  $("bstat").textContent = `${last.length} checked · ${last.filter(x => x[1] === "spam").length} spam · ${hi} high risk${last.length > 300 ? " · first 300 shown" : ""}`;
+  $("copy").disabled = !last.length;
+}
+
+function parseCSV(text) {
+  const rows = []; let row = [], f = "", q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) { if (c === '"' && text[i + 1] === '"') { f += '"'; i++; } else if (c === '"') q = false; else f += c; }
+    else if (c === '"') q = true; else if (c === ",") { row.push(f); f = ""; }
+    else if (c === "\n" || c === "\r") { if (c === "\r" && text[i + 1] === "\n") i++; row.push(f); rows.push(row); row = []; f = ""; }
+    else f += c;
+  }
+  if (f || row.length) { row.push(f); rows.push(row); }
+  return rows;
+}
+
+$("chips").addEventListener("click", e => { const b = e.target.closest(".chip"); if (b) { $("msg").value = EX[+b.dataset.i][1]; check(); } });
+$("go").addEventListener("click", check);
+$("clear").addEventListener("click", () => { $("msg").value = ""; $("msg").focus(); });
+$("msg").addEventListener("keydown", e => { if ((e.ctrlKey || e.metaKey) && e.key === "Enter") check(); });
+$("pasteRun").addEventListener("click", () => runBatch($("lines").value.split(/\r?\n/)));
+$("file").addEventListener("change", async e => {
+  const file = e.target.files[0]; if (!file) return;
+  if (file.size > 5e6) { $("bstat").textContent = "File too large (max 5 MB)."; return; }
+  const text = (await file.text()).replace(/^﻿/, "");
+  if (/\.csv$/i.test(file.name)) {
+    const rows = parseCSV(text), head = (rows[0] || []).map(h => h.trim().toLowerCase());
+    const col = head.findIndex(h => ["message", "text", "sms", "v2"].includes(h));
+    if (col < 0) { $("bstat").textContent = "No 'message' column found."; return; }
+    runBatch(rows.slice(1).map(r => r[col] || ""));
+  } else runBatch(text.split(/\r?\n/));
+});
+$("copy").addEventListener("click", async () => {
+  const cell = v => { let s = String(v); if (/^[=+\-@\t\r]/.test(s)) s = "'" + s; return '"' + s.replace(/"/g, '""') + '"'; };
+  const csv = ["message,verdict,probability,risk_score,risk_level,scam_type", ...last.map(x => x.map((v, i) => cell(i === 2 ? v.toFixed(4) : v)).join(","))].join("\n");
+  try { await navigator.clipboard.writeText(csv); $("bstat").textContent = "Copied " + last.length + " rows as CSV."; }
+  catch { $("bstat").textContent = "Copy was blocked by the browser."; }
+});
+
+$("lines").value = EX.map(e => e[1]).join("\n");
+$("msg").value = EX[0][1];
+fetch("model.json").then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }).then(j => {
+  model = new SpamEngine.Model(j);
+  const m = j.metrics; $("webm").textContent = `F1 ${m.f1.toFixed(3)}, precision ${m.precision.toFixed(3)}, recall ${m.recall.toFixed(3)} on the same ${j.test_messages.toLocaleString()} test messages`;
+  $("status").textContent = "Model ready. Ctrl+Enter also checks.";
+  check(); runBatch($("lines").value.split(/\r?\n/));
+}).catch(err => { $("status").textContent = "Could not load the model (" + err.message + ")."; });
+}
+</script>
+</body>
+</html>

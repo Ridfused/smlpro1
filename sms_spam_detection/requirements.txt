@@ -1,0 +1,9 @@
+scikit-learn>=1.4
+pandas>=2.1
+numpy>=1.26
+matplotlib>=3.8
+joblib>=1.3
+datasketch>=1.6
+streamlit>=1.50
+# optional (experiments/embeddings_experiment.py only):
+# sentence-transformers>=3.0
